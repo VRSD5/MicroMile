@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sql-configmap
+data:
+  sample.sql: |
+    CREATE DATABASE comment_page;
+    CREATE TABLE IF NOT EXISTS comments(
+              id SERIAL PRIMARY KEY,
+              post_time timestamp NOT NULL,
+              content TEXT NOT NULL
+        );

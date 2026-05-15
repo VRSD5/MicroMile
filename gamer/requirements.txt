@@ -1,3 +1,5 @@
 Flask>=2.3.2
+Flask-JWT-Extended>=4.7.4
 noaa_sdk>=0.1.21
 psycopg2-binary>=2.9.11
+chess>=1.11.2

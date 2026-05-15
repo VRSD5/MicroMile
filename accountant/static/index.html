@@ -2,31 +2,35 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Comments</title>
+  <title>Login</title>
 </head>
 <body>
-  <h1>Comments</h1>
+  <h1>Sign In</h1>
   <input id="text" placeholder="Username" />
   <button onclick="send()">Login</button>
+
 
   <script>
     async function send() {
       const text = document.getElementById("text").value;
-      await fetch("/accountant/sign-in", {
+      const res = await fetch("/api/sign-in", {
         method: "POST",
+        credentials: "include",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({text})
       });
-      load();
+      const data = await res.json();
+    }
+    
+    async function test() {
+      const token = localStorage.getItem("token");
+      await fetch("/api/test-jwt", {
+        method: "GET",
+        credentials: "include"
+      });
+
     }
 
-    async function load() {
-      const res = await fetch("/comments");
-      document.getElementById("out").textContent =
-        JSON.stringify(await res.json(), null, 2);
-    }
-
-    load();
   </script>
 </body>
 </html>

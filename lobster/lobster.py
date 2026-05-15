@@ -1,7 +1,8 @@
 import flask
+from flask_jwt_extended import JWTManager, get_jwt_identity, jwt_required, create_access_token
 import json
 from datetime import datetime
-
+import requests
 
 import psycopg2
 import os
@@ -19,174 +20,132 @@ DB_PASSWORD = "mypassword"
 
 
 
-class Lobbies:	
-	def add_lobby(self, lobby_name, creator, invitee=None):
-		#TODO Figure out how to deal with empty invitee
-		game = (lobby_name, creator, invitee)
+class Lobbies:
+	data = {}
+	invites = {}
+	count = 0
+	def add_lobby(self, creator, invitee=None):
+		
+		game = (self.count, creator, invitee)
+		self.data[self.count] = game
+		if invitee in self.invites:
+			self.invites[invitee].add(game)
+		else:
+			self.invites[invitee] = set(game)
+		self.count += 1
+		
 
-		try:
-			# Connect to the PostgreSQL database
-			connection = psycopg2.connect(
-				dbname=DB_NAME,
-				user=DB_USER,
-				password=DB_PASSWORD,
-				host=DB_HOST,
-				port=DB_PORT
-			)
-			cursor = connection.cursor()
 
-			# Execute a simple query
-			cursor.execute("INSERT INTO users(name, player_a, player_b) VALUES(%s, %s, %s)", game)
-			
-			# Close the connection
-			cursor.close()
-			connection.commit()
-			connection.close()
-
-		except psycopg2.OperationalError as e:
-			print(f"Connection error: {e}")
-			return json.dumps(str(e))
-			#return json.dumps({"error": "DB Error",
-					#   "DB_NAME": DB_NAME,
-					#   "DB_USER": DB_USER,
-					#   "DB_PASS": DB_PASSWORD,
-					#   "DB_HOST": DB_HOST,
-					#   "DB_PORT": DB_PORT})
-
-		return json.dumps(game)
 	
 	def get_lobbies(self, username=None):
-		try:
-			# Connect to the PostgreSQL database
-			connection = psycopg2.connect(
-				database=DB_NAME,
-				user=DB_USER,
-				password=DB_PASSWORD,
-				host=DB_HOST,
-				port=DB_PORT
-			)
-			cursor = connection.cursor()
+		if username in self.invites:
+			return list(self.invites[username])
+		return []
 
-			#TODO query to get lobbies and if username != None filter by username
-			cursor.execute("SELECT content FROM comments")
-			
 
-			comments = cursor.fetchall()
-
-			# Close the connection
-			cursor.close()
-			connection.close()
-
-		except psycopg2.OperationalError as e:
-			print(f"Connection error: {e}")
-
-		#TODO that thing where you don't get all values you get a subset
-		return comments
+	def get_lobby_info(self, lobby):
+		return self.data[lobby]
 	
 	def check_lobby_exists(self, lobby_name):
-		try:
-			# Connect to the PostgreSQL database
-			connection = psycopg2.connect(
-				database=DB_NAME,
-				user=DB_USER,
-				password=DB_PASSWORD,
-				host=DB_HOST,
-				port=DB_PORT
-			)
-			cursor = connection.cursor()
-
-			#TODO check if lobby exists
-			cursor.execute("SELECT content FROM comments")
-			lobby_exists = False
-
-			
-
-			# Close the connection
-			cursor.close()
-			connection.close()
-
-		except psycopg2.OperationalError as e:
-			print(f"Connection error: {e}")
-
-	
-		return lobby_exists
+		return lobby_name in self.data
 
 	def close_lobby(self, lobby_name):
-		try:
-			# Connect to the PostgreSQL database
-			connection = psycopg2.connect(
-				database=DB_NAME,
-				user=DB_USER,
-				password=DB_PASSWORD,
-				host=DB_HOST,
-				port=DB_PORT
-			)
-			cursor = connection.cursor()
-
-			#TODO query to delete lobby by name
-			cursor.execute("SELECT content FROM comments")
-			
-
-			comments = cursor.fetchall()
-
-			# Close the connection
-			cursor.close()
-			connection.close()
-
-		except psycopg2.OperationalError as e:
-			print(f"Connection error: {e}")
-
-		#TODO that thing where you don't get all values you get a subset
-		return comments
+		game = self.data[lobby_name]
+		self.invites[game[2]].discard(game)
+		self.data.pop(lobby_name)
+	
+	def join_lobby(self, lobby_name, username):
+		game = self.data[lobby_name]
+		if game[2] == None:
+			self.data[lobby_name] = (lobby_name, game[1], username)
+			self.invites[None].discard(game)
+			self.invites[username].add(self.data[lobby_name])
+			return True
+		return False
 	
 
+GAMER_URL = "http:/gamer.default.127.0.0.1.sslip.io"
 
-
-
+root_token = create_access_token(identity="root")
 
 app = flask.Flask(__name__)
+app.config['JWT_SECRET_KEY'] = 'super_super_duper_secret_key'
+app.config['JWT_TOKEN_LOCATION'] = ['header']
 
+jwt = JWTManager(app)
 
 lobbies = Lobbies()
 
 
 @app.route("/ui")
+@jwt_required
 def serve_root():
 	return flask.send_file("static/index.html")
 
-@app.route("/<path:path>")
-def serve_static(path):
-	return flask.send_from_directory("static", path)
 
 
-#TODO
-@app.route('/api/create-lobby', methods=['POST'])
-def create_lobby():
+@app.route('/api/create-lobby-invite', methods=['POST'])
+@jwt_required
+def create_lobby_invite():
 	data = flask.request.json
+	username = get_jwt_identity()
+	invitee = data.get("text")
 
-	# Check if user exists if not add user
-	if not lobbies.check_user_exists():
-		lobbies.add_user(data.get("text", ""))
-	# Provide security token
+	lobbies.add_lobby(username, invitee)
+
+
+@app.route('/api/create-lobby-invite', methods=['POST'])
+@jwt_required()
+def create_lobby():
+	username = get_jwt_identity()
 	
-	#print(data.get("text"))
-	return flask.Response(
-		lobbies.add_user(data.get("text", "")),
-		mimetype="application/json"
-	)
-
-@app.route('/api/check-lobby')
-def check_lobby():
-	pass
+	lobbies.add_lobby(username)
+	
+	
 
 @app.route('/api/close-lobby')
+@jwt_required()
 def close_lobby():
-	pass
+	data = flask.request.json
+	username = get_jwt_identity()
+	lobby_name = data.get("text", "")
+	game = lobbies.get_lobby_info(lobby_name)
+
+	if username == game[1] or username == game[2]:
+		lobbies.close_lobby(lobby_name)
+
 
 @app.route('/api/join-lobby')
+@jwt_required()
 def join_lobby():
-	pass
+	data = flask.request.json
+	username = get_jwt_identity()
+	lobby_name = data.get("text", "")
+	
+	game = lobbies.get_lobby_info(lobby_name)
 
+
+	if game[2] == None:
+		if not lobbies.join_lobby(lobby_name, username):
+			return flask.Response(
+
+			)
+		game[2] = username
+
+
+	if username == game[1] or username == game[2]:
+		pass
+		#Call gamer to make game
+		requests.post(f"{GAMER_URL}/api/create-game",
+				headers={
+					"Authorization":f"Bearer {root_token}"
+				}, json = {
+					"lobby_name":lobby_name,
+					"player_1":game[1],
+					"player_2":game[2]
+				})
+		#redirect to gamer/ui/game/id
+		return flask.redirect(f"http:/gamer.default.127.0.0.1.sslip.io/ui/game/{lobby_name}")
 
 
 

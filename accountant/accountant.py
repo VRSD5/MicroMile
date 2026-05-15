@@ -1,146 +1,40 @@
 import flask
 from flask import request, jsonify
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, set_access_cookies
 import json
 from datetime import datetime
 import jwt
 from functools import wraps
 
-import psycopg2
-import os
 
-# Connection parameters loaded from environment variables
-DB_NAME = "bXlkYXRhYmFzZQ=="
-DB_USER = "bXl1c2Vy"
-DB_PASSWORD = "bXlwYXNzd29yZA=="
-DB_HOST = "postgresql" # This should be the K8s service name (e.g., "db")
-DB_PORT = 5432 # e.g., 5432
 
-DB_NAME = "mydatabase"
-DB_USER = "myuser"
-DB_PASSWORD = "mypassword"
 
-#TODO Set up a secret so I don't have this
-AUTH_KEY = 'very_secret_key'
-
+AUTH_KEY = 'super_super_duper_secret_key'
+LOBSTER_URL = "http:/lobster.default.127.0.0.1.sslip.io"
 
 class Users:	
-	data = {}
+	data = set()
 	def add_user(self, username):
-		#token = however I generate a JST
-		token = jwt.encode({"username":username}, AUTH_KEY, algorithm="HS256")
-		
-		self.data[username] = token
-
-		return token
-	
-		user = (username, token)
-		try:
-			# Connect to the PostgreSQL database
-			connection = psycopg2.connect(
-				dbname=DB_NAME,
-				user=DB_USER,
-				password=DB_PASSWORD,
-				host=DB_HOST,
-				port=DB_PORT
-			)
-			cursor = connection.cursor()
-
-			# Execute a simple query
-			cursor.execute("INSERT INTO users(username, token) VALUES(%s, %s)", user)
-			
-			# Close the connection
-			cursor.close()
-			connection.commit()
-			connection.close()
-
-		except psycopg2.OperationalError as e:
-			print(f"Connection error: {e}")
-			return json.dumps(str(e))
-			#return json.dumps({"error": "DB Error",
-					#   "DB_NAME": DB_NAME,
-					#   "DB_USER": DB_USER,
-					#   "DB_PASS": DB_PASSWORD,
-					#   "DB_HOST": DB_HOST,
-					#   "DB_PORT": DB_PORT})
-
-		return json.dumps({
-			"token":token
-		})
+		if username in self.data:
+			return False
+		self.data.add(username)
+		return True
 	
 	def check_user_exists(self, username):
-		user_exists = False
-
-		if username in self.data.keys():
-			user_exists = True
-
-		return user_exists
-
-		try:
-			# Connect to the PostgreSQL database
-			connection = psycopg2.connect(
-				database=DB_NAME,
-				user=DB_USER,
-				password=DB_PASSWORD,
-				host=DB_HOST,
-				port=DB_PORT
-			)
-			cursor = connection.cursor()
-
-			# query to check if user exists
-			cursor.execute("SELECT content FROM comments")
-			user_exists = False
-
-			comments = cursor.fetchall()
-
-			# Close the connection
-			cursor.close()
-			connection.close()
-
-		except psycopg2.OperationalError as e:
-			print(f"Connection error: {e}")
-
-		return user_exists
-	
-	def get_user_token(self, username):
-		if not self.check_user_exists(username):
-			return None
-		return self.data[username]
-	
-		try:
-			# Connect to the PostgreSQL database
-			connection = psycopg2.connect(
-				database=DB_NAME,
-				user=DB_USER,
-				password=DB_PASSWORD,
-				host=DB_HOST,
-				port=DB_PORT
-			)
-			cursor = connection.cursor()
-
-			# query to get user token
-			cursor.execute("SELECT content FROM comments")
-			
-
-			#token = cursor.fetchall()
-			token = "testing_token"
-
-			# Close the connection
-			cursor.close()
-			connection.close()
-
-		except psycopg2.OperationalError as e:
-			print(f"Connection error: {e}")
-
-		return json.dumps({"token":token})
-
-	
+		return username in self.data
 
 
 
 
 
 app = flask.Flask(__name__)
+app.config['JWT_SECRET_KEY'] = AUTH_KEY
+app.config['JWT_TOKEN_LOCATION'] = ['cookies']
+app.config["JWT_COOKIE_SECURE"] = False
 
+
+
+jwt = JWTManager(app)
 
 users = Users()
 
@@ -158,52 +52,26 @@ def serve_static(path):
 @app.route('/api/sign-in', methods=['POST'])
 def sign_in():
 	data = flask.request.json
-
+	username = data.get("text", "")
 	# Check if user exists if not add user
-	if not users.check_user_exists():
-		users.add_user(data.get("text", ""))
+	if not users.check_user_exists(username):
+		users.add_user(username)
 	# Provide security token
+	access_token = create_access_token(identity=username)
 	
-	#print(data.get("text"))
-	
-	return flask.Response(
-		json.dump({"token":users.get_user_token(data.get("text", ""))}),
-		mimetype="application/json"
+	res = flask.make_response(
+		flask.redirect(LOBSTER_URL)
 	)
 
-@app.route('/api/check_user')
-def check_user():
-	pass
+	set_access_cookies(res, access_token)
 
-@app.route('/api/check_token')
-def check_token():
-	pass
-
-	#Needs both username and token field
-	data = flask.request.json
-	#Get token from users
-	test_token = users.get_user_token(data.get("username", ""))
-
-	#Compare token
-	return flask.Response(
-		json.dumps({"success":test_token == data.get("token", "")}),
-		mimetype="application/json"
-		)
+	return res
 
 
-def token_required(f):
-	@wraps(f)
-	def decorated(*args, **kwargs):
-		token = request.cookies.get('jwt_token')
-
-		if not token:
-			return jsonify({'message': 'Token is missing!'}), 401
-		
-		try:
-			data = jwt.decode(token, AUTH_KEY, algorithms=["HS26"])
-			current_user = data["username"]
-		except:
-			return jsonify({'message': 'Token is invalid!'}), 401
-
-		return f(current_user, *args, **kwargs)
-	return decorated
+@app.route('/api/test-jwt', methods=['GET'])
+@jwt_required()
+def test_jwt():
+	username = get_jwt_identity()
+	return jsonify({
+		"res":username
+	})

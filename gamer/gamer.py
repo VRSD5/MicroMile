@@ -1,6 +1,8 @@
 import flask
 import json
 from datetime import datetime
+from flask_jwt_extended import JWTManager, get_jwt_identity, jwt_required, create_access_token
+import chess
 
 
 import psycopg2
@@ -22,24 +24,34 @@ class Games:
 	pass
 	
 
+LOBSTER_URL = "http:/lobster.default.127.0.0.1.sslip.io"
 
 
 
+root_token = create_access_token(identity="root")
 
 app = flask.Flask(__name__)
+app.config['JWT_SECRET_KEY'] = 'super_super_duper_secret_key'
+app.config['JWT_TOKEN_LOCATION'] = ['header']
 
+jwt = JWTManager(app)
 
+games = Games()
 
-
-@app.route("/ui")
-def serve_root():
-	return flask.send_file("static/index.html")
+# @app.route("/ui")
+# def serve_root():
+# 	return flask.send_file("static/index.html")
 
 #TODO figure out how to make <game_id be a game id and be relevant>
 @app.route("/ui/game/<game_id>")
-def serve_game():
-	#TODO figure out how to get it to go to this file in the joined game state.
+@jwt_required()
+def serve_game(game_id):
+	#TODO figure out how to give this game info
 	return flask.send_file("static/index.html")
+
+
+@app.route("/api/game/start")
+def 
 
 @app.route("/<path:path>")
 def serve_static(path):
@@ -47,14 +59,12 @@ def serve_static(path):
 
 
 
-@app.route('/api/create-lobby', methods=['POST'])
+@app.route('/api/create-game', methods=['POST'])
+@jwt_re
 def sign_in():
 	data = flask.request.json
 
-	# Check if user exists if not add user
-	if not users.check_user_exists():
-		users.add_user(data.get("text", ""))
-	# Provide security token
+	
 	
 	#print(data.get("text"))
 	return flask.Response(

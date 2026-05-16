@@ -10,14 +10,15 @@ from functools import wraps
 
 
 AUTH_KEY = 'super_super_duper_secret_key'
-LOBSTER_URL = "http:/lobster.default.127.0.0.1.sslip.io"
+# LOBSTER_URL = "http:/lobster.default.127.0.0.1.sslip.io"
+LOBSTER_URL = "localhost:3002"
 
 class Users:	
-	data = set()
+	data = {}
 	def add_user(self, username):
 		if username in self.data:
 			return False
-		self.data.add(username)
+		self.data[username] = {"wins":0, "draws":0, "losses":0}
 		return True
 	
 	def check_user_exists(self, username):
@@ -59,9 +60,9 @@ def sign_in():
 	# Provide security token
 	access_token = create_access_token(identity=username)
 	
-	res = flask.make_response(
-		flask.redirect(LOBSTER_URL)
-	)
+	res = flask.jsonify({
+		"redirect":f"{LOBSTER_URL}/ui"
+	})
 
 	set_access_cookies(res, access_token)
 
@@ -75,3 +76,22 @@ def test_jwt():
 	return jsonify({
 		"res":username
 	})
+
+@app.route('/api/update_stats', methods = ['PUT'])
+@jwt_required
+def updated_stats():
+	test = get_jwt_identity()
+	if test != "root":
+		return
+	
+	data = flask.request.json
+	user = data.get("User", "")
+	event = data.get("Event", "")
+
+	Users.data[user][event] += 1
+
+@app.route('/api/get_stats', methods = ['GET'])
+@jwt_required
+def get_stats():
+	user = get_jwt_identity()
+	return jsonify(Users.data[user])

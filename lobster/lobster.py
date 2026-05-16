@@ -4,19 +4,6 @@ import json
 from datetime import datetime
 import requests
 
-import psycopg2
-import os
-
-# Connection parameters loaded from environment variables
-DB_NAME = "bXlkYXRhYmFzZQ=="
-DB_USER = "bXl1c2Vy"
-DB_PASSWORD = "bXlwYXNzd29yZA=="
-DB_HOST = "postgresql" # This should be the K8s service name (e.g., "db")
-DB_PORT = 5432 # e.g., 5432
-
-DB_NAME = "mydatabase"
-DB_USER = "myuser"
-DB_PASSWORD = "mypassword"
 
 
 
@@ -62,17 +49,23 @@ class Lobbies:
 			self.invites[username].add(self.data[lobby_name])
 			return True
 		return False
+
 	
 
 GAMER_URL = "http:/gamer.default.127.0.0.1.sslip.io"
 
-root_token = create_access_token(identity="root")
+
 
 app = flask.Flask(__name__)
 app.config['JWT_SECRET_KEY'] = 'super_super_duper_secret_key'
-app.config['JWT_TOKEN_LOCATION'] = ['header']
+app.config['JWT_TOKEN_LOCATION'] = ['cookies']
+app.config["JWT_COOKIE_SECURE"] = False
+
+
 
 jwt = JWTManager(app)
+
+
 
 lobbies = Lobbies()
 
@@ -85,16 +78,18 @@ def serve_root():
 
 
 @app.route('/api/create-lobby-invite', methods=['POST'])
-@jwt_required
+@jwt_required()
 def create_lobby_invite():
 	data = flask.request.json
 	username = get_jwt_identity()
 	invitee = data.get("text")
+	if username == invitee:
+		return
 
 	lobbies.add_lobby(username, invitee)
 
 
-@app.route('/api/create-lobby-invite', methods=['POST'])
+@app.route('/api/create-lobby', methods=['POST'])
 @jwt_required()
 def create_lobby():
 	username = get_jwt_identity()
@@ -127,27 +122,36 @@ def join_lobby():
 
 	if game[2] == None:
 		if not lobbies.join_lobby(lobby_name, username):
-			return flask.Response(
-
-			)
+			return
 		game[2] = username
-
 
 	if username == game[1] or username == game[2]:
 		pass
 		#Call gamer to make game
-		requests.post(f"{GAMER_URL}/api/create-game",
-				headers={
-					"Authorization":f"Bearer {root_token}"
-				}, json = {
+		root_token = create_access_token(identity="root")
+		cookies = {"auth_token":root_token}
+		requests.post(f"{GAMER_URL}/api/create-game"
+				, json = {
 					"lobby_name":lobby_name,
 					"player_1":game[1],
 					"player_2":game[2]
-				})
+				}, 
+				cookies=cookies)
 		#redirect to gamer/ui/game/id
 		return flask.redirect(f"http:/gamer.default.127.0.0.1.sslip.io/ui/game/{lobby_name}")
 
+@app.route('/api/lobbies')
+@jwt_required()
+def get_lobbies():
+	username = get_jwt_identity()
+	hold = lobbies.get_lobbies(username)
+	hold.extend(lobbies.get_lobbies())
 
+	returnal = []
+	for i in hold:
+		returnal.append({"id": i[0], "player_1":i[1], "player_2":i[2] if i[2] else "None"})
+
+	return flask.jsonify(returnal)
 
 
 

@@ -20,6 +20,7 @@
         body: JSON.stringify({text})
       });
       const data = await res.json();
+      window.location.href = data.redirect;
     }
     
     async function test() {

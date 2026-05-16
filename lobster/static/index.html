@@ -16,14 +16,13 @@
       if (!test) {
         await fetch("/api/create-lobby", {
           method: "POST",
-          credential:"include",
-          headers: {"Content-Type": "application/json"}
+          headers: {"Authorization":`Bearer ${token}`, "Content-Type": "application/json"}
         });
       } else {
         await fetch("/api/create-lobby-invite", {
           method: "POST",
           credentials: "include",
-          headers: {"Content-Type": "application/json"},
+          headers: {"Authorization":`Bearer ${token}`, "Content-Type": "application/json"},
           body: JSON.stringify({text})
         });
       }

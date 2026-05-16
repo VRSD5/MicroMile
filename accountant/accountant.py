@@ -10,8 +10,8 @@ from functools import wraps
 
 
 AUTH_KEY = 'super_super_duper_secret_key'
-# LOBSTER_URL = "http:/lobster.default.127.0.0.1.sslip.io"
-LOBSTER_URL = "localhost:3002"
+LOBSTER_URL = "http:/lobster.default.127.0.0.1.sslip.io"
+# LOBSTER_URL = "localhost:3002"
 
 class Users:	
 	data = {}

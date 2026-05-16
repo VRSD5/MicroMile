@@ -63,7 +63,8 @@ ACCOUNTANT_URL = "http:/lobster.default.127.0.0.1.sslip.io"
 
 app = flask.Flask(__name__)
 app.config['JWT_SECRET_KEY'] = 'super_super_duper_secret_key'
-app.config['JWT_TOKEN_LOCATION'] = ['header']
+app.config['JWT_TOKEN_LOCATION'] = ['cookies']
+app.config["JWT_COOKIE_SECURE"] = False
 
 jwt = JWTManager(app)
 

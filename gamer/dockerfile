@@ -3,8 +3,8 @@ FROM python:3.14-slim
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
-COPY comment_api.py .
+COPY gamer.py .
 COPY static ./static/
 
-EXPOSE 3002
-CMD ["python", "-m", "flask", "--app", "comment_api.py", "run", "--host", "0.0.0.0", "--port", "3002"]
+EXPOSE 3003
+CMD ["python", "-m", "flask", "--app", "gamer.py", "run", "--host", "0.0.0.0", "--port", "3003"]

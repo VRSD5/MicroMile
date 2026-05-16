@@ -1,0 +1,37 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Login</title>
+</head>
+<body>
+  <h1>Sign In</h1>
+  <input id="text" placeholder="Username" />
+  <button onclick="send()">Login</button>
+
+
+  <script>
+    async function send() {
+      const text = document.getElementById("text").value;
+      const res = await fetch("/api/sign-in", {
+        method: "POST",
+        credentials: "include",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({text})
+      });
+      const data = await res.json();
+      window.location.href = data.redirect;
+    }
+    
+    async function test() {
+      const token = localStorage.getItem("token");
+      await fetch("/api/test-jwt", {
+        method: "GET",
+        credentials: "include"
+      });
+
+    }
+
+  </script>
+</body>
+</html>

@@ -3,15 +3,14 @@ from flask import request, jsonify
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, set_access_cookies
 import json
 from datetime import datetime
-import jwt
 from functools import wraps
 
 
 
 
 AUTH_KEY = 'super_super_duper_secret_key'
-LOBSTER_URL = "http:/lobster.default.127.0.0.1.sslip.io"
-# LOBSTER_URL = "localhost:3002"
+LOBSTER_URL = "http://lobster.default.127.0.0.1.sslip.io"
+# LOBSTER_URL = "http://localhost:3002"
 
 class Users:	
 	data = {}
@@ -30,8 +29,9 @@ class Users:
 
 app = flask.Flask(__name__)
 app.config['JWT_SECRET_KEY'] = AUTH_KEY
-app.config['JWT_TOKEN_LOCATION'] = ['cookies']
+app.config['JWT_TOKEN_LOCATION'] = ['headers']
 app.config["JWT_COOKIE_SECURE"] = False
+app.config["JWT_COOKIE_SAMESITE"] = "Lax"
 
 
 
@@ -58,15 +58,12 @@ def sign_in():
 	if not users.check_user_exists(username):
 		users.add_user(username)
 	# Provide security token
-	access_token = create_access_token(identity=username)
-	
-	res = flask.jsonify({
-		"redirect":f"{LOBSTER_URL}/ui"
+
+	return flask.jsonify({
+		"redirect":f"/ui/service/lobster"
 	})
 
-	set_access_cookies(res, access_token)
 
-	return res
 
 
 @app.route('/api/test-jwt', methods=['GET'])
@@ -91,7 +88,7 @@ def updated_stats():
 	Users.data[user][event] += 1
 
 @app.route('/api/get_stats', methods = ['GET'])
-@jwt_required
+@jwt_required()
 def get_stats():
 	user = get_jwt_identity()
 	return jsonify(Users.data[user])

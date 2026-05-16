@@ -1,0 +1,10 @@
+FROM python:3.14-slim
+
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+
+COPY frontend.py .
+COPY static ./static/
+
+EXPOSE 3000
+CMD ["python", "-m", "flask", "--app", "frontend.py", "run", "--host", "0.0.0.0", "--port", "3000"]

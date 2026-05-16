@@ -63,7 +63,7 @@ ACCOUNTANT_URL = "http:/lobster.default.127.0.0.1.sslip.io"
 
 app = flask.Flask(__name__)
 app.config['JWT_SECRET_KEY'] = 'super_super_duper_secret_key'
-app.config['JWT_TOKEN_LOCATION'] = ['cookies']
+app.config['JWT_TOKEN_LOCATION'] = ['headers']
 app.config["JWT_COOKIE_SECURE"] = False
 
 jwt = JWTManager(app)
@@ -114,7 +114,7 @@ def move(game_id, move_uci):
 		if "Draw" in res:
 			a, b = games.get_players(game_id)
 			root_token = create_access_token(identity="root")
-			cookies = {"auth_token":root_token}
+			
 			res = requests.post(f"{ACCOUNTANT_URL}/update_stats",
 						json={
 							"User":a,
@@ -127,12 +127,12 @@ def move(game_id, move_uci):
 						},cookies = cookies)
 		else:
 			root_token = create_access_token(identity="root")
-			cookies = {"auth_token":root_token}
+			
 			requests.post(f"{ACCOUNTANT_URL}/update_stats",
 					 json={
 						 "User":res["Loser"],
 						 "Event":"losses"
-					 }, cookies=cookies)
+					 }, )
 			requests.post(f"{ACCOUNTANT_URL}/update_stats",
 					 json={
 						 "User":res["Winner"],

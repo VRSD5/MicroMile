@@ -58,7 +58,7 @@ GAMER_URL = "http:/gamer.default.127.0.0.1.sslip.io"
 
 app = flask.Flask(__name__)
 app.config['JWT_SECRET_KEY'] = 'super_super_duper_secret_key'
-app.config['JWT_TOKEN_LOCATION'] = ['cookies']
+app.config['JWT_TOKEN_LOCATION'] = ['headers']
 app.config["JWT_COOKIE_SECURE"] = False
 
 
@@ -69,11 +69,6 @@ jwt = JWTManager(app)
 
 lobbies = Lobbies()
 
-
-@app.route("/ui")
-@jwt_required
-def serve_root():
-	return flask.send_file("static/index.html")
 
 
 

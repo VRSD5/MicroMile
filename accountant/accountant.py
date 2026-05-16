@@ -52,8 +52,10 @@ def serve_static(path):
 
 @app.route('/api/sign-in', methods=['POST'])
 def sign_in():
+	
 	data = flask.request.json
 	username = data.get("text", "")
+
 	# Check if user exists if not add user
 	if not users.check_user_exists(username):
 		users.add_user(username)

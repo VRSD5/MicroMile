@@ -4,7 +4,6 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt
 
 COPY lobster.py .
-COPY static ./static/
 
 EXPOSE 3002
 CMD ["python", "-m", "flask", "--app", "lobster.py", "run", "--host", "0.0.0.0", "--port", "3002"]

@@ -8,15 +8,14 @@ import requests
 
 
 key = {
-	"accountant":"http://accountant.default.127.0.0.1.sslip.io",
-	"lobster":"http://lobster.default.127.0.0.1.sslip.io",
-	"gamer":"http://gamer.default.127.0.0.1.sslip.io"
+	"accountant":"http://accountant.default.svc.cluster.local",
+	"lobster":"http://lobster.default.svc.cluster.local",
+	"gamer":"http://gamer.default.svc.cluster.local"
 }
 
 
 AUTH_KEY = 'super_super_duper_secret_key'
-LOBSTER_URL = "http://lobster.default.127.0.0.1.sslip.io"
-# LOBSTER_URL = "http://localhost:3002"
+
 
 class Users:	
 	data = {}
@@ -38,6 +37,7 @@ app.config['JWT_SECRET_KEY'] = AUTH_KEY
 app.config['JWT_TOKEN_LOCATION'] = ['cookies']
 app.config["JWT_COOKIE_SECURE"] = False
 app.config["JWT_COOKIE_SAMESITE"] = "Lax"
+app.config["JWT_COOKIE_CSRF_PROTECT"] = False
 
 
 
@@ -57,45 +57,56 @@ def serve_service(service):
 
 @app.route("/api/sign-in", methods=["POST"])
 def sign_in():
-	data = flask.request.json
-	username = data.get("text", "")
-	# Check if user exists if not add user
-	resp = requests.post(f"{key["accountant"]}/api/sign-in",
-		json=data, 
-	)
-	redirect = resp.json["redirect"]
-	
-	
-	# Provide security token
-	access_token = create_access_token(identity=username)
-	
-	res = flask.jsonify({
-		"redirect":redirect,
-	})
+	try:
+		data = flask.request.json
+		username = data.get("text", "")
+		if username in {"root", "open"}:
+			return flask.jsonify({"res":"invalid username"})
+		# Check if user exists if not add user
+		resp = requests.post(f"{key['accountant']}/api/sign-in",
+			json=data, 
+		)
+		
+		# Provide security token
+		access_token = create_access_token(identity=username)
+		
+		res = flask.jsonify({
+			"redirect":"/ui/service/lobster",
+		})
+		
+		set_access_cookies(res, access_token)
+		return res
+	except Exception as e:
+		return flask.jsonify({"Exception":str(e)})
 	
 
-	set_access_cookies(res, access_token)
-	return res
-	
-
-@app.route("/<service>/<path:path>", methods=["POST", "GET"])
+@app.route("/service/<service>/<path:path>", methods=["POST", "GET"])
+@jwt_required()
 def interior_routing(service, path):
-	if service not in {"accountant", "lobster", "gamer"}:
-		return flask.jsonify({"service":service, "path":path}),404
-	target_url = f"{key[service]}/{path}"
+	try:
+		if service not in {"accountant", "lobster", "gamer"}:
+			return flask.jsonify({"service":service, "path":path}),404
+		target_url = f"{key[service]}/{path}"
 
-	user = get_jwt_identity()
-	headers = request.headers
-	if user != None:
-		token = create_access_token(identity=user)
+		user = get_jwt_identity()
+		headers = dict(request.headers)
+		excluded = {"Host", "Content-Length", "Accept-Encoding"}
+		headers = {k: v for k, v in request.headers if k not in excluded}
+		if user != None:
+			token = create_access_token(identity=user)
 
-		headers["Authorization"] = f"Bearer {token}"
-	resp = requests.request(
-		method=request.method,
-		url=target_url,
-		headers=headers,
-		json=request.json
+			headers["Authorization"] = f"Bearer {token}"
+		
+		payload = request.get_json(silent=True)
+		#return flask.jsonify({"target":target_url})
+		resp = requests.request(
+			method=request.method,
+			url=target_url,
+			headers=headers,
+			data=request.data
 
-	)
+		)
 
-	return flask.Response(resp.content, resp.status_code, resp.headers.items())
+		return flask.Response(resp.content, resp.status_code, resp.headers.items())
+	except Exception as e:
+		return flask.jsonify({"Exception":e})
